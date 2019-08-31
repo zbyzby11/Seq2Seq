@@ -7,6 +7,12 @@ from torch import nn
 
 class Encoder(nn.Module):
     def __init__(self, voca_size, emb_dim, hidden_dim):
+        """
+        初始化函数
+        :param voca_size:在Encoder端的词的字典大小（Encoder端的词汇量）
+        :param emb_dim: 在Encoder端需要embedding的维度
+        :param hidden_dim: 在Encoder端RNN的隐藏层的维度
+        """
         super(Encoder, self).__init__()
         self.voca_size = voca_size
         self.emb_dim = emb_dim
@@ -34,15 +40,25 @@ class Encoder(nn.Module):
         output_pack, h_pack = self.rnn(packed_seq)
         print('h_pack shape is:', h_pack.shape)
         # 因为是双向RNN，所以取最后一层的前向和后向向量进行cat
-        h_back = h_pack[-1,:,:]
-        h_forward = h_pack[-2,:,:]
+        h_back = h_pack[-1, :, :]
+        h_forward = h_pack[-2, :, :]
         # h = [batch_size, 2*hidden_size]
         h = torch.cat((h_back, h_forward), dim=1)
         return h
 
 
-
-
+class Decoder(nn.Module):
+    def __init__(self, voca_size, emb_size, decoder_dim):
+        super(Decoder, self).__init__()
+        self.voca_size = voca_size
+        self.emb_size = emb_size
+        self.decoder_dim = decoder_dim
+        self.decoder_embedding = nn.Embedding(self.voca_size, self.emb_size)
+        self.decoder_rnn = nn.GRU(self.emb_size, self.decoder_dim, num_layers=1, bidirectional=True, batch_first=True)
+        # 全连接层，上一层是decoder的维度，下一层是所有词汇表的大小
+        self.fc = nn.Linear(self.decoder_dim, self.voca_size)
+    def forward(self, x, init_hidden, ):
+        ...
 
 
 if __name__ == '__main__':
@@ -56,7 +72,7 @@ if __name__ == '__main__':
     # print(a[-2, :, :].shape)
     # c = torch.cat((a, b), dim=1)
     # print(c.shape)
-    a = torch.randn(100,200,128)
+    a = torch.randn(100, 200, 128)
     l = [10] * 200
     pac = nn.utils.rnn.pack_padded_sequence(a, l)
     print(pac)
