@@ -104,11 +104,24 @@ class Seq2Seq(nn.Module):
         trg_max_length = trg.size(1)
         # 翻译的词汇的大小
         trg_voca_size = self.decoder.voca_size
+        # 存储每个翻译出来的每个批的翻译的词
+        outputs = torch.zeros(src_batch_size, trg_max_length)
         # 经过一层encoder层
         # encoder_output = [batch_size, 2*encoder_hidden_size]
         encoder_output = self.encoder(src, per_src_length)
-        # 获取到trg的每批的'BOS'
-        # init_tokens =
+        # encoder_output = [batch_size, 1, 2*encoder_hidden_size]
+        encoder_output = encoder_output.unsqueeze(1)
+        # 获取到trg的每批的'BOS', init_tokens = [batch_size, 1]
+        init_tokens = trg[:, 0]
+        # print(init_tokens)
+        # 生成序列
+        for t in range(1, trg_max_length):
+            # decoder_output = [trg_batch_size, voca_size]，就是下一个词
+            decoder_output = self.decoder(init_tokens, encoder_output)
+            out = torch.max(decoder_output, dim=1)[1]
+            outputs[:, t] = out
+        return outputs
+
 
 if __name__ == '__main__':
     gru = nn.GRU(input_size=128, hidden_size=32, num_layers=2, bidirectional=True)
