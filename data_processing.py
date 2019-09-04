@@ -58,7 +58,7 @@ class Data(object):
         self.english_voca_size = len(self.english.vocab)
         self.chinese_voca_size = len(self.chinese.vocab)
         train_iter, test_iter = Iterator.splits((train, test), batch_sizes=(batch_size, len(test)),
-                                                sort_key=lambda x: len(x.english), device=-1)
+                                                sort_key=lambda x: len(x.english), sort_within_batch=True, device=-1)
 
         return train_iter, test_iter
 
@@ -68,7 +68,8 @@ if __name__ == '__main__':
     x,y = data_set.create_iter(100)
     print(data_set.english.vocab.stoi)
     for i in x:
-        print(i.chinese[0][0])
-        print(i.chinese[1])
+        print(i)
+        print(i.english[0][0])
+        print(i.english[1])
         break
 
