@@ -130,6 +130,19 @@ class Seq2Seq(nn.Module):
         # outputs = [batch_size, trg_max_length, trg_voca_size],是每个句子预测出来的翻译序列
         return outputs
 
+    def predict(self, x, x_length):
+        """
+        预测输入的x的生成的翻译序列
+        :param x: 输入的一批原始数据x
+        :param x_length: 对于每个句子的原始长度列表
+        :return: 生成的序列
+        """
+        # x = [batch_size, seq_length]
+        bs = x.size(0)
+        max_length = x.size(1)
+        # encoder_out = [batch_size, 2 * hidden_size]
+        encoder_out = self.encoder(x, x_length)
+
 
 if __name__ == '__main__':
     gru = nn.GRU(input_size=128, hidden_size=32, num_layers=2, bidirectional=True)

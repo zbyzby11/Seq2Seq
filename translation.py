@@ -83,6 +83,7 @@ class Translation(object):
                         else:
                             l.append(en_dict['<unk>'])
                     valid_tensor = torch.tensor(l).unsqueeze(0).to(self.device)
+                    print('valid tensor: ', valid_tensor.shape)
                     output = self.seq2seq(valid_tensor, trg, [len(valid)])
                     print(output)
                     # for t in self.test_iter:
