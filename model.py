@@ -3,6 +3,7 @@
 """
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 
 class Encoder(nn.Module):
@@ -38,7 +39,7 @@ class Encoder(nn.Module):
         # output_pack为PackedSequence类型, h_pack就是这批句子最后一个状态的hidden_state
         # h = (batch, num_layers(1) * num_directions(2), hidden_size)
         output_pack, h_pack = self.rnn(packed_seq)
-        print('h_pack shape is:', h_pack.shape)
+        # print('h_pack shape is:', h_pack.shape)
         # 因为是双向RNN，所以取最后一层的前向和后向向量进行cat
         h_back = h_pack[-1, :, :]
         h_forward = h_pack[-2, :, :]
@@ -67,19 +68,23 @@ class Decoder(nn.Module):
         """
         # x = [batch_size, 1], 这个就是decoder的开始token：'SOS'
         # init_hidden_state是encoder部分的context向量
-        # init_hidden_state = [batch_size, 1, encoder_hidden_dim]
+        # init_hidden_state = [1, batch_size, decoder_hidden_dim]
         bs = x.size(0)
         # x_emb = [batch_size, 1, emb_dim]， 将'SOS'进行embedding
-        x_emb = self.embedding(x)
+        x_emb = self.decoder_embedding(x)
+        # print('x_emb: ',x_emb.shape)
         # 通过rnn层
         # x_emb = [batch_size, 1, emb_dim]
-        # init_hidden_state = [batch_size, 1, 2*encoder_hidden_dim]
+        # init_hidden_state = [1, batch_size, 2*encoder_hidden_dim]
         # output = [batch_size, seq_len=1, num_directions(1) * decoder_dim]
+        # print(init_hidden_state.shape)
         output, _ = self.decoder_rnn(x_emb, init_hidden_state)
         # output = [batch_size, decoder_dim]
         output = output[:, -1, :]
         # out = [batch_size, voca_size]，就是下一个词
         out = self.fc(output)
+        # print('decoder out is: ',out.shape)
+        # out = F.log_softmax(out, dim=1)
         return out
 
 
@@ -105,21 +110,24 @@ class Seq2Seq(nn.Module):
         # 翻译的词汇的大小
         trg_voca_size = self.decoder.voca_size
         # 存储每个翻译出来的每个批的翻译的词
-        outputs = torch.zeros(src_batch_size, trg_max_length)
+        outputs = torch.zeros(src_batch_size, trg_max_length, trg_voca_size)
         # 经过一层encoder层
         # encoder_output = [batch_size, 2*encoder_hidden_size]
         encoder_output = self.encoder(src, per_src_length)
-        # encoder_output = [batch_size, 1, 2*encoder_hidden_size]
-        encoder_output = encoder_output.unsqueeze(1)
+        # encoder_output = [1, batch_size, 2*encoder_hidden_size]
+        encoder_output = encoder_output.unsqueeze(0)
         # 获取到trg的每批的'BOS', init_tokens = [batch_size, 1]
-        init_tokens = trg[:, 0]
-        # print(init_tokens)
+        init_tokens = trg[:, :1]
+        # print(init_tokens.shape)
         # 生成序列
         for t in range(1, trg_max_length):
             # decoder_output = [trg_batch_size, voca_size]，就是下一个词
             decoder_output = self.decoder(init_tokens, encoder_output)
-            out = torch.max(decoder_output, dim=1)[1]
-            outputs[:, t] = out
+            # print('decoder_output: ', decoder_output.shape)
+            # out = torch.max(decoder_output, dim=1)[1]
+            outputs[:, t, :] = decoder_output
+        # print(outputs.shape)
+        # outputs = [batch_size, trg_max_length, trg_voca_size],是每个句子预测出来的翻译序列
         return outputs
 
 
