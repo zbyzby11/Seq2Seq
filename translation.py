@@ -10,8 +10,8 @@ from data_processing import Data
 
 class Translation(object):
     def __init__(self,
-                 training_times=100,
-                 lr=0.01,
+                 training_times=500,
+                 lr=0.0001,
                  batch_size=32,
                  emb_size=128,
                  encoder_hiddein_size=100,
@@ -42,9 +42,10 @@ class Translation(object):
         # print(pad_id)
         createon = nn.CrossEntropyLoss(ignore_index=pad_id)
         for epoch in range(self.training_times):
-            self.seq2seq.train()
             flag = True
+            self.seq2seq.train()
             for index, i in enumerate(self.train_iter):
+                self.seq2seq.train()
                 # chinese和english当中包含了当前批次中每句话的原始长度
                 chinese = i.chinese
                 english = i.english
@@ -68,28 +69,46 @@ class Translation(object):
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-                print('epoch {}|| step {}|| loss is :{}'.format(epoch, index, loss.item()))
                 # if flag:
                 #     print('epoch {}|| loss is :{}'.format(epoch, loss.item()))
                 #     flag = False
-                self.seq2seq.eval()
-                if index % 5 == 0:
-                    l = []
-                    s = 'BOS i am a chinese . EOS'
-                    valid = s.split(' ')
-                    for token in valid:
-                        if token in en_dict:
-                            l.append(en_dict[token])
-                        else:
-                            l.append(en_dict['<unk>'])
-                    valid_tensor = torch.tensor(l).unsqueeze(0).to(self.device)
-                    print('valid tensor: ', valid_tensor.shape)
-                    output = self.seq2seq(valid_tensor, trg, [len(valid)])
-                    print(output)
-                    # for t in self.test_iter:
-                    #     o = self.seq2seq(t.english[0], trg, t.english[1])
-                    #     print(o)
-
+                if index % 100 == 0:
+                    print('epoch {}|| step {}|| loss is :{}'.format(epoch, index, loss.item()))
+                    print('\n')
+                    self.seq2seq.eval()
+                    batch2id = []
+                    test_batch = ['BOS go . get the hell out of here . no , let \'s go home ! EOS',
+                                  'BOS may i have a word , please ? what do you want ? EOS',
+                                  'BOS so i let her believe that she was getting to me . EOS',
+                                  'BOS he intends to level our homes and kill us all . EOS',
+                                  'BOS i am a chinese . EOS']
+                    batch_length = [len(i.split(' ')) for i in test_batch]
+                    max_length = 20
+                    for bs in test_batch:
+                        t = []
+                        b = bs.split(' ')
+                        for token in b:
+                            if token in en_dict:
+                                t.append(en_dict[token])
+                            else:
+                                t.append(en_dict['<unk>'])
+                        # padding操作
+                        if len(t) < max_length:
+                            temp = [pad_id] * (max_length - len(t))
+                            t.extend(temp)
+                        batch2id.append(t)
+                    valid_tensor = torch.tensor(batch2id).to(self.device)
+                    output = self.seq2seq.predict(valid_tensor, batch_length)
+                    output = output.data.numpy().tolist()
+                    for seq1, seq2 in zip(test_batch, output):
+                        print('原始语句为：', seq1)
+                        temp = []
+                        for idx in seq2:
+                            temp.append(self.data.chinese.vocab.itos[int(idx)])
+                        print('翻译过后的语句为：', " ".join(temp))
+                        print('-----------------------------------')
+                        print('-----------------------------------')
+                    print('\n\n\n\n')
 
 if __name__ == '__main__':
     s = Translation()
