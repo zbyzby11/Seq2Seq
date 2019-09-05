@@ -78,14 +78,15 @@ class Decoder(nn.Module):
         # init_hidden_state = [1, batch_size, 2*encoder_hidden_dim]
         # output = [batch_size, seq_len=1, num_directions(1) * decoder_dim]
         # print(init_hidden_state.shape)
-        output, _ = self.decoder_rnn(x_emb, init_hidden_state)
+        # hn = [num_layers * num_directions, batch_size, 2*encoder_hidden_dim]
+        output, hn = self.decoder_rnn(x_emb, init_hidden_state)
         # output = [batch_size, decoder_dim]
         output = output[:, -1, :]
         # out = [batch_size, voca_size]，就是下一个词
         out = self.fc(output)
         # print('decoder out is: ',out.shape)
         # out = F.log_softmax(out, dim=1)
-        return out
+        return out, hn
 
 
 class Seq2Seq(nn.Module):
@@ -97,7 +98,7 @@ class Seq2Seq(nn.Module):
     def forward(self, src, trg, per_src_length):
         """
         输入两个batch，一个是待翻译的batch，一个是翻译后的batch
-        :param src: 带翻译的batch
+        :param src: 待翻译的batch
         :param trg: 翻译好的batch
         :param per_src_length: 使用pack_padded_sequence机制传入的每批src的真正长度
         :return: 模型翻译出来的整个序列
@@ -122,9 +123,11 @@ class Seq2Seq(nn.Module):
         # 生成序列
         for t in range(1, trg_max_length):
             # decoder_output = [trg_batch_size, voca_size]，就是下一个词
-            decoder_output = self.decoder(init_tokens, encoder_output)
+            decoder_output, decoder_hn = self.decoder(init_tokens, encoder_output)
             # print('decoder_output: ', decoder_output.shape)
-            # out = torch.max(decoder_output, dim=1)[1]
+            init_tokens = decoder_output.max(1, keepdim=True)[1]
+            encoder_output = decoder_hn
+            # print('new_token: ', init_tokens.shape)
             outputs[:, t, :] = decoder_output
         # print(outputs.shape)
         # outputs = [batch_size, trg_max_length, trg_voca_size],是每个句子预测出来的翻译序列
@@ -140,8 +143,25 @@ class Seq2Seq(nn.Module):
         # x = [batch_size, seq_length]
         bs = x.size(0)
         max_length = x.size(1)
+        # print('max_length:', max_length)
         # encoder_out = [batch_size, 2 * hidden_size]
         encoder_out = self.encoder(x, x_length)
+        # encoder_out = [1, batch_size, 2*encoder_hidden_size]
+        encoder_out = encoder_out.unsqueeze(0)
+        # 对输入的序列进行解码
+        # init_token = 'BOS' = [batch_size, 1]
+        init_token = x[:, :1]
+        # output = [batch_size, seq_max_length]
+        output = torch.zeros(bs, max_length)
+        for t in range(0, max_length):
+            # out = [batch_size, voca_size]
+            out, hn = self.decoder(init_token, encoder_out)
+            init_token = out.max(dim=1, keepdim=True)[1]
+            encoder_out = hn
+            # print('word_index:', init_token.shape)
+            output[:, t] = init_token.squeeze()
+        # print(output)
+        return output
 
 
 if __name__ == '__main__':
