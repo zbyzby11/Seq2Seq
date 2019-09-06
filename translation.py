@@ -110,6 +110,7 @@ class Translation(object):
                         print('-----------------------------------')
                     print('\n\n\n\n')
 
+
 if __name__ == '__main__':
     s = Translation()
     s.train()
